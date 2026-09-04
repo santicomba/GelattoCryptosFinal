@@ -20,7 +20,7 @@ public class TransactionsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var lista = await _db.Transactions.OrderBy(t => t.DateTime).ToListAsync();
+        var lista = await _db.Transactions.OrderByDescending(t => t.Id).ToListAsync();
         return Ok(lista);
     }
 
