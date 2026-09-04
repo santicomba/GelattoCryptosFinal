@@ -1,0 +1,26 @@
+# ==== Backend (.NET / Visual Studio) ====
+Back/**/bin/
+Back/**/obj/
+Back/**/.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ==== Frontend (Node / Vite) ====
+Front/node_modules/
+Front/dist/
+Front/.vite/
+Front/*.local
+
+# ==== Variables de entorno / secretos ====
+.env
+.env.local
+.env.*.local
+Back/**/appsettings.Development.json
+
+# ==== Sistema operativo / editor ====
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
