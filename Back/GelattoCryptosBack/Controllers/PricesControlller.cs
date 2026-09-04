@@ -16,7 +16,7 @@ public class PricesController : ControllerBase
     {
         try
         {
-            var url = $"https://criptoya.com/api/satoshitango/{cryptoCode}/ars/1";
+            var url = $"https://criptoya.com/api/binance/{cryptoCode}/ars/1";
             var respuesta = await _http.GetFromJsonAsync<CriptoyaResponse>(url);
             if (respuesta == null) return StatusCode(500, "No se pudo obtener el precio");
 

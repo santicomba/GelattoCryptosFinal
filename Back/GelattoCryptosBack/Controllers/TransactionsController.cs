@@ -142,7 +142,7 @@ public class TransactionsController : ControllerBase
     {
         try
         {
-            var url = $"https://criptoya.com/api/satoshitango/{cryptoCode}/ars/1";
+            var url = $"https://criptoya.com/api/binance/{cryptoCode}/ars/1";
             var respuesta = await _http.GetFromJsonAsync<CriptoyaResponse>(url);
             return respuesta?.totalBid;
         }
