@@ -1,3 +1,4 @@
+import SaldosView from '../views/SaldosView.vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import NuevaTransaccionView from '../views/NuevaTransaccionView.vue'
@@ -14,6 +15,7 @@ const router = createRouter({
     { path: '/historial', name: 'historial', component: HistorialView },
     { path: '/portfolio', name: 'portfolio', component: PortfolioView },
     { path: '/mercado', name: 'mercado', component: MercadoView },
+    { path: '/saldos', name: 'saldos', component: SaldosView },
   ]
 })
 

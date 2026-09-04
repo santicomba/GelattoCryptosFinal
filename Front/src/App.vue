@@ -26,6 +26,7 @@ function salir() {
     <RouterLink to="/historial">Historial</RouterLink>
     <RouterLink to="/portfolio">Mi Portfolio</RouterLink>
     <RouterLink to="/mercado">Mercado</RouterLink>
+    <RouterLink to="/saldos">Cargar Saldo</RouterLink>
     <button class="salir" @click="salir">Salir</button>
   </nav>
   <RouterView />

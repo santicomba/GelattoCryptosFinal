@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.13.35825.156 d17.13
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Criptos TP FINAL PROGRAMACION 3", "Criptos TP FINAL PROGRAMACION 3\Criptos TP FINAL PROGRAMACION 3.csproj", "{0FE404F3-4DE9-4F2E-BC50-20DC52E90394}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Criptos TP FINAL PROGRAMACION 3", "GelattoCryptosBack\Criptos TP FINAL PROGRAMACION 3.csproj", "{0FE404F3-4DE9-4F2E-BC50-20DC52E90394}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
