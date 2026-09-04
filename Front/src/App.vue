@@ -22,7 +22,8 @@ function salir() {
   <nav v-if="logueado">
     <img src="/logo.png" alt="Gelatto Logo">
     <h1>GelattoCryptos</h1>
-    <RouterLink to="/">Nueva Transacción</RouterLink>
+        <RouterLink to="/">Inicio</RouterLink>
+    <RouterLink to="/nueva-transaccion">Nueva Transacción</RouterLink>
     <RouterLink to="/historial">Historial</RouterLink>
     <RouterLink to="/portfolio">Mi Portfolio</RouterLink>
     <RouterLink to="/mercado">Mercado</RouterLink>

@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { isAdmin } from '../auth.js'
 
 const API = 'https://localhost:7097'
 const historial = ref([])
+const esAdmin = ref(isAdmin())
 
 const modalVer = ref(false)
 const modalEditar = ref(false)
@@ -83,9 +85,11 @@ async function confirmarBorrado() {
             <td>${{ t.money.toLocaleString('es-AR') }}</td>
             <td>{{ formatearFecha(t.dateTime) }}</td>
             <td>
-              <button class="btn-small btn-ver" @click="verTransaccion(t.id)">Ver</button>
-              <button class="btn-small btn-editar" @click="abrirEdicion(t.id)">Editar</button>
-              <button class="btn-small btn-borrar" @click="abrirBorrado(t.id)">Borrar</button>
+                            <button class="btn-small btn-ver" @click="verTransaccion(t.id)">Ver</button>
+              <template v-if="esAdmin">
+                <button class="btn-small btn-editar" @click="abrirEdicion(t.id)">Editar</button>
+                <button class="btn-small btn-borrar" @click="abrirBorrado(t.id)">Borrar</button>
+              </template>
             </td>
           </tr>
         </tbody>
