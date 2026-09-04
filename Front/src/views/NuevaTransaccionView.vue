@@ -4,6 +4,16 @@ import { getSaldo, setSaldo } from '../auth.js'
 
 const API = 'https://localhost:7097'
 
+// misma lista de 6 criptos que usa MercadoView, para que todo el sitio sea consistente
+const CRIPTOS = [
+  { code: 'btc', nombre: 'Bitcoin', icono: '₿' },
+  { code: 'eth', nombre: 'Ethereum', icono: 'Ξ' },
+  { code: 'ada', nombre: 'Cardano', icono: '🔷' },
+  { code: 'usdc', nombre: 'USDC', icono: '💵' },
+  { code: 'sol', nombre: 'Solana', icono: '◎' },
+  { code: 'bnb', nombre: 'BNB', icono: '🟡' },
+]
+
 const accion = ref('purchase')
 const crypto = ref('btc')
 const cantidad = ref('')
@@ -14,10 +24,26 @@ const saldo = ref(getSaldo())
 const precioUnitario = ref(null)
 const cargandoPrecio = ref(false)
 
+// portfolio del usuario, para el dropdown dinámico de venta
+const portfolio = ref([])          // [{ cryptoCode, cantidad, valorARS }]
+const cargandoPortfolio = ref(false)
+
 function mostrarMensaje(texto, tipo) {
   mensaje.value = texto
   tipoMensaje.value = tipo
   setTimeout(() => { mensaje.value = '' }, 4000)
+}
+
+async function cargarPortfolio() {
+  cargandoPortfolio.value = true
+  try {
+    const res = await fetch(`${API}/transactions/portfolio`)
+    const data = await res.json()
+    portfolio.value = data.tenencias || []
+  } catch (e) {
+    portfolio.value = []
+  }
+  cargandoPortfolio.value = false
 }
 
 async function consultarPrecio() {
@@ -33,6 +59,18 @@ async function consultarPrecio() {
   cargandoPrecio.value = false
 }
 
+// cuando cambia el tipo de operación a "venta", cargo el portfolio real
+// y si la cripto seleccionada no está en la cartera, salto a la primera que sí tenga
+watch(accion, async (nuevaAccion) => {
+  if (nuevaAccion === 'sale') {
+    await cargarPortfolio()
+    const tengoLaSeleccionada = portfolio.value.some(t => t.cryptoCode === crypto.value)
+    if (!tengoLaSeleccionada && portfolio.value.length > 0) {
+      crypto.value = portfolio.value[0].cryptoCode
+    }
+  }
+}, { immediate: true })
+
 // cada vez que cambia la cripto elegida, vuelvo a consultar el precio
 watch(crypto, consultarPrecio, { immediate: true })
 
@@ -41,6 +79,16 @@ async function guardarTransaccion() {
   if (!cant || cant <= 0) { mostrarMensaje('La cantidad debe ser mayor a 0', 'error'); return }
   if (!fecha.value) { mostrarMensaje('Ingresá la fecha y hora', 'error'); return }
   if (!precioUnitario.value) { mostrarMensaje('No se pudo obtener el precio, intentá de nuevo', 'error'); return }
+
+  // valido en el frontend que no vendas más de lo que tenés
+  if (accion.value === 'sale') {
+    const tenencia = portfolio.value.find(t => t.cryptoCode === crypto.value)
+    const disponible = tenencia ? tenencia.cantidad : 0
+    if (cant > disponible) {
+      mostrarMensaje(`❌ No tenés suficiente ${crypto.value.toUpperCase()}. Disponible: ${disponible}`, 'error')
+      return
+    }
+  }
 
   const total = precioUnitario.value * cant
 
@@ -72,6 +120,9 @@ async function guardarTransaccion() {
       mostrarMensaje('✅ ¡Transacción guardada con éxito!', 'ok')
       cantidad.value = ''
       fecha.value = ''
+
+      // si vendí, refresco el portfolio para que el dropdown quede al día
+      if (accion.value === 'sale') await cargarPortfolio()
     } else {
       const err = await res.text()
       mostrarMensaje('❌ Error: ' + err, 'error')
@@ -97,11 +148,26 @@ async function guardarTransaccion() {
       </select>
 
       <label>Criptomoneda</label>
-      <select v-model="crypto">
-        <option value="btc">₿ Bitcoin (BTC)</option>
-        <option value="eth">Ξ Ethereum (ETH)</option>
-        <option value="usdc">💵 USDC</option>
+
+      <!-- Compra: lista fija con las 6 criptos disponibles -->
+      <select v-if="accion === 'purchase'" v-model="crypto">
+        <option v-for="c in CRIPTOS" :key="c.code" :value="c.code">
+          {{ c.icono }} {{ c.nombre }} ({{ c.code.toUpperCase() }})
+        </option>
       </select>
+
+      <!-- Venta: dropdown dinámico según lo que tenés en el portfolio -->
+      <template v-else>
+        <div v-if="cargandoPortfolio" class="mensaje">Cargando tu cartera...</div>
+        <div v-else-if="portfolio.length === 0" class="mensaje error">
+          No tenés criptomonedas para vender.
+        </div>
+        <select v-else v-model="crypto">
+          <option v-for="t in portfolio" :key="t.cryptoCode" :value="t.cryptoCode">
+            {{ t.cryptoCode.toUpperCase() }} — tenés {{ t.cantidad }}
+          </option>
+        </select>
+      </template>
 
       <label>Cantidad</label>
       <input type="number" v-model="cantidad" step="0.00000001" placeholder="Ej: 0.00070">
@@ -115,7 +181,7 @@ async function guardarTransaccion() {
         <strong>Total: ${{ (precioUnitario * cantidad).toLocaleString('es-AR') }}</strong>
       </div>
 
-      <button class="btn" @click="guardarTransaccion">Guardar transacción</button>
+      <button class="btn" :disabled="accion === 'sale' && portfolio.length === 0" @click="guardarTransaccion">Guardar transacción</button>
       <div v-if="mensaje" class="mensaje" :class="tipoMensaje">{{ mensaje }}</div>
     </div>
   </div>
