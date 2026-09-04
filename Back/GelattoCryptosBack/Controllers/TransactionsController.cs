@@ -1,10 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using Criptos_TP_FINAL_PROGRAMACION_3.Models;
 using Criptos_TP_FINAL_PROGRAMACION_3.Data;
 
 [ApiController]
 [Route("transactions")]
+[Authorize]   // <- nadie sin token entra a ningun endpoint de esta clase
 public class TransactionsController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -16,50 +19,100 @@ public class TransactionsController : ControllerBase
         _http = httpFactory.CreateClient();
     }
 
-    // GET /transactions - trae todas las transacciones ordenadas por fecha
+    // saca el Id del usuario logueado desde el token, nunca confiamos en lo que manda el cliente
+    private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    private bool EsAdmin() => User.IsInRole("admin");
+
+    // GET /transactions - trae SOLO las del usuario logueado (admin ve todas)
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var lista = await _db.Transactions.OrderByDescending(t => t.Id).ToListAsync();
+        var query = _db.Transactions.AsQueryable();
+        if (!EsAdmin())
+            query = query.Where(t => t.UserId == GetUserId());
+
+        var lista = await query.OrderByDescending(t => t.Id).ToListAsync();
         return Ok(lista);
     }
 
-    // GET /transactions/{id} - trae una transaccion por id
+    // GET /transactions/{id}
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
         var transaccion = await _db.Transactions.FindAsync(id);
         if (transaccion == null) return NotFound();
+        if (!EsAdmin() && transaccion.UserId != GetUserId()) return Forbid();
         return Ok(transaccion);
     }
 
-    // POST /transactions - crea una compra o venta
+    // POST /transactions
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] Transaction t)
     {
+        t.UserId = GetUserId();   // se asigna server-side, no lo manda el frontend
+
         if (t.CryptoAmount <= 0)
             return BadRequest("La cantidad debe ser mayor a 0");
 
-        if (t.Action == "sale")
-        {
-            var saldo = await CalcularSaldo(t.CryptoCode);
-            if (t.CryptoAmount > saldo)
-                return BadRequest($"No tenés suficiente {t.CryptoCode}. Saldo actual: {saldo}");
-        }
-
         var precio = await ObtenerPrecio(t.CryptoCode);
+
         if (precio == null)
             return StatusCode(500, "No se pudo obtener el precio de la criptomoneda");
 
-        t.Money = t.CryptoAmount * precio.Value;
+        var total = t.CryptoAmount * precio.Value;
+
+        // COMPRA: validar saldo y descontarlo
+        if (t.Action == "purchase")
+        {
+            var balance = await _db.Balances
+                .FirstOrDefaultAsync(b => b.UserId == t.UserId);
+
+            if (balance == null || balance.Saldo < total)
+                return BadRequest("No tenés saldo suficiente para esta compra.");
+
+            balance.Saldo -= total;
+        }
+
+        // VENTA: validar cripto disponible y acreditar el dinero
+        if (t.Action == "sale")
+        {
+            var saldoCrypto = await CalcularSaldo(t.CryptoCode, t.UserId);
+
+            if (t.CryptoAmount > saldoCrypto)
+                return BadRequest(
+                    $"No tenés suficiente {t.CryptoCode}. Saldo actual: {saldoCrypto}"
+                );
+
+            var balance = await _db.Balances
+                .FirstOrDefaultAsync(b => b.UserId == t.UserId);
+
+            if (balance == null)
+            {
+                balance = new Balance
+                {
+                    UserId = t.UserId,
+                    Saldo = total
+                };
+
+                _db.Balances.Add(balance);
+            }
+            else
+            {
+                balance.Saldo += total;
+            }
+        }
+
+
+        t.Money = total;
 
         _db.Transactions.Add(t);
         await _db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = t.Id }, t);
     }
 
-    // PATCH /transactions/{id} - edita una transaccion
+    // PATCH /transactions/{id} - solo admin
     [HttpPatch("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Edit(int id, [FromBody] Transaction datos)
     {
         var transaccion = await _db.Transactions.FindAsync(id);
@@ -75,8 +128,9 @@ public class TransactionsController : ControllerBase
         return Ok(transaccion);
     }
 
-    // DELETE /transactions/{id} - borra una transaccion
+    // DELETE /transactions/{id} - solo admin
     [HttpDelete("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var transaccion = await _db.Transactions.FindAsync(id);
@@ -87,11 +141,15 @@ public class TransactionsController : ControllerBase
         return NoContent();
     }
 
-    // GET /transactions/portfolio - estado actual de la cartera
+    // GET /transactions/portfolio - SOLO del usuario logueado (admin ve todo junto, igual que antes)
     [HttpGet("portfolio")]
     public async Task<IActionResult> GetPortfolio()
     {
-        var transacciones = await _db.Transactions.ToListAsync();
+        var query = _db.Transactions.AsQueryable();
+        if (!EsAdmin())
+            query = query.Where(t => t.UserId == GetUserId());
+
+        var transacciones = await query.ToListAsync();
 
         var saldos = transacciones
             .GroupBy(t => t.CryptoCode)
@@ -113,23 +171,17 @@ public class TransactionsController : ControllerBase
             {
                 var valorARS = item.Cantidad * precio.Value;
                 total += valorARS;
-                portafolio.Add(new
-                {
-                    item.CryptoCode,
-                    item.Cantidad,
-                    ValorARS = valorARS
-                });
+                portafolio.Add(new { item.CryptoCode, item.Cantidad, ValorARS = valorARS });
             }
         }
 
         return Ok(new { Tenencias = portafolio, TotalEnARS = total });
     }
 
-    // Calcula cuanta cripto tiene el usuario
-    private async Task<decimal> CalcularSaldo(string cryptoCode)
+    private async Task<decimal> CalcularSaldo(string cryptoCode, string userId)
     {
         var transacciones = await _db.Transactions
-            .Where(t => t.CryptoCode == cryptoCode)
+            .Where(t => t.CryptoCode == cryptoCode && t.UserId == userId)
             .ToListAsync();
 
         decimal comprado = transacciones.Where(t => t.Action == "purchase").Sum(t => t.CryptoAmount);
@@ -137,7 +189,6 @@ public class TransactionsController : ControllerBase
         return comprado - vendido;
     }
 
-    // Consulta el precio actual de una cripto en criptoya
     private async Task<decimal?> ObtenerPrecio(string cryptoCode)
     {
         try
@@ -153,7 +204,6 @@ public class TransactionsController : ControllerBase
     }
 }
 
-// Clase para parsear la respuesta de criptoya
 public class CriptoyaResponse
 {
     public decimal totalBid { get; set; }

@@ -12,5 +12,6 @@ namespace Criptos_TP_FINAL_PROGRAMACION_3.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal Money { get; set; }
         public DateTime DateTime { get; set; }
+        public string UserId { get; set; } = string.Empty;
     }
 }

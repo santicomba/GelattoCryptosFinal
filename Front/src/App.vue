@@ -1,14 +1,14 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router'
-import { isLogueado, logout } from './auth'
+import { estaLogueado, logout } from './auth'
 
 const router = useRouter()
 const route = useRoute()
-const logueado = ref(isLogueado())
+const logueado = ref(estaLogueado())
 
 watch(route, () => {
-  logueado.value = isLogueado()
+  logueado.value = estaLogueado()
 })
 
 function salir() {

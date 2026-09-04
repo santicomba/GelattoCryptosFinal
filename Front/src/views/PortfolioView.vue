@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { apiFetch } from '../auth'
 
 const API = 'https://localhost:7097'
 const tenencias = ref([])
@@ -7,11 +8,17 @@ const total = ref(0)
 const cargado = ref(false)
 
 onMounted(async () => {
-  const res = await fetch(`${API}/transactions/portfolio`)
-  const datos = await res.json()
-  tenencias.value = datos.tenencias || []
-  total.value = datos.totalEnARS || 0
-  cargado.value = true
+  try {
+    const res = await apiFetch('/transactions/portfolio')
+    const datos = await res.json()
+    tenencias.value = datos.tenencias || []
+    total.value = datos.totalEnARS || 0
+  } catch (e) {
+    tenencias.value = []
+    total.value = 0
+  } finally {
+    cargado.value = true
+  }
 })
 </script>
 

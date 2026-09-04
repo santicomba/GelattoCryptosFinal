@@ -1,8 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { getSaldo, setSaldo } from '../auth.js'
+import { getSaldo, setSaldo, apiFetch } from '../auth.js'
 
-const API = 'https://localhost:7097'
 
 // misma lista de 6 criptos que usa MercadoView, para que todo el sitio sea consistente
 const CRIPTOS = [
@@ -20,13 +19,35 @@ const cantidad = ref('')
 const fecha = ref('')
 const mensaje = ref('')
 const tipoMensaje = ref('')
-const saldo = ref(getSaldo())
+const saldo = ref(0)
+const cargandoSaldo = ref(true)
 const precioUnitario = ref(null)
 const cargandoPrecio = ref(false)
 
 // portfolio del usuario, para el dropdown dinámico de venta
 const portfolio = ref([])          // [{ cryptoCode, cantidad, valorARS }]
 const cargandoPortfolio = ref(false)
+
+async function cargarSaldo() {
+  cargandoSaldo.value = true
+
+  try {
+    const res = await apiFetch('/balances')
+
+    if (!res.ok) {
+      saldo.value = 0
+      return
+    }
+
+    const data = await res.json()
+    saldo.value = Number(data.saldo || 0)
+    setSaldo(saldo.value)
+  } catch (e) {
+    saldo.value = 0
+  } finally {
+    cargandoSaldo.value = false
+  }
+}
 
 function mostrarMensaje(texto, tipo) {
   mensaje.value = texto
@@ -37,7 +58,7 @@ function mostrarMensaje(texto, tipo) {
 async function cargarPortfolio() {
   cargandoPortfolio.value = true
   try {
-    const res = await fetch(`${API}/transactions/portfolio`)
+    const res = await apiFetch('/transactions/portfolio')
     const data = await res.json()
     portfolio.value = data.tenencias || []
   } catch (e) {
@@ -50,7 +71,7 @@ async function consultarPrecio() {
   cargandoPrecio.value = true
   precioUnitario.value = null
   try {
-    const res = await fetch(`${API}/prices/${crypto.value}`)
+    const res = await apiFetch(`/prices/${crypto.value}`)
     const data = await res.json()
     precioUnitario.value = data.price
   } catch (e) {
@@ -73,6 +94,8 @@ watch(accion, async (nuevaAccion) => {
 
 // cada vez que cambia la cripto elegida, vuelvo a consultar el precio
 watch(crypto, consultarPrecio, { immediate: true })
+
+cargarSaldo()
 
 async function guardarTransaccion() {
   const cant = parseFloat(cantidad.value)
@@ -106,16 +129,13 @@ async function guardarTransaccion() {
   }
 
   try {
-    const res = await fetch(`${API}/transactions`, {
+    const res = await apiFetch('/transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     })
-    if (res.ok) {
-      // actualizo el saldo local segun la operacion
-      const nuevoSaldo = accion.value === 'purchase' ? saldo.value - total : saldo.value + total
-      setSaldo(nuevoSaldo)
-      saldo.value = nuevoSaldo
+        if (res.ok) {
+      await cargarSaldo()
 
       mostrarMensaje('✅ ¡Transacción guardada con éxito!', 'ok')
       cantidad.value = ''

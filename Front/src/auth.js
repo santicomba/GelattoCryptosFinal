@@ -1,33 +1,61 @@
-export function getUsuario() {
-  const data = localStorage.getItem('login')
-  return data ? JSON.parse(data) : null
+const API = 'https://localhost:7097'
+
+export function getToken() {
+  return localStorage.getItem('token')
 }
 
-export function isLogueado() {
-  return getUsuario() !== null
+export function getUsuario() {
+  return localStorage.getItem('usuario')
+}
+
+export function getRol() {
+  return localStorage.getItem('rol')
 }
 
 export function isAdmin() {
-  const u = getUsuario()
-  return u?.rol === 'admin'
+  return getRol() === 'admin'
 }
 
-export function logout() {
-  localStorage.removeItem('login')
-}
-
-// cada usuario tiene su propia clave de saldo en localStorage
-export function getClaveSaldo() {
-  const u = getUsuario()
-  if (u === null) return 'saldo_invitado'
-  return 'saldo_' + u.usuario
+export function estaLogueado() {
+  return !!getToken()
 }
 
 export function getSaldo() {
-  const guardado = localStorage.getItem(getClaveSaldo())
-  return guardado ? parseFloat(guardado) : 0
+  const saldo = localStorage.getItem('saldo')
+  return saldo ? Number(saldo) : 0
 }
 
-export function setSaldo(nuevoSaldo) {
-  localStorage.setItem(getClaveSaldo(), nuevoSaldo)
+export function setSaldo(saldo) {
+  localStorage.setItem('saldo', saldo)
+}
+
+export async function apiFetch(endpoint, options = {}) {
+  const token = getToken()
+
+  const headers = {
+    ...(options.headers || {})
+  }
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  return fetch(`${API}${endpoint}`, {
+    ...options,
+    headers
+  })
+}
+
+export function login(usuario, rol, token, saldo = 0) {
+  localStorage.setItem('usuario', usuario)
+  localStorage.setItem('rol', rol)
+  localStorage.setItem('token', token)
+  localStorage.setItem('saldo', saldo)
+}
+
+export function logout() {
+  localStorage.removeItem('usuario')
+  localStorage.removeItem('rol')
+  localStorage.removeItem('token')
+  localStorage.removeItem('saldo')
 }

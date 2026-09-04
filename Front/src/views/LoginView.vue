@@ -1,24 +1,33 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { login } from '../auth'
 
 const usuario = ref('')
 const password = ref('')
 const error = ref('')
 const router = useRouter()
 
-const USUARIOS = [
-  { usuario: 'santicomba', password: 'gelatto', rol: 'admin' },
-  { usuario: 'user', password: 'pwd', rol: 'usuario' }
-]
+async function iniciarSesion() {
+  error.value = ''
 
-function login() {
-  const encontrado = USUARIOS.find(u => u.usuario === usuario.value && u.password === password.value)
-  if (encontrado) {
-    localStorage.setItem('login', JSON.stringify(encontrado))
+  try {
+    const res = await fetch('https://localhost:7097/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario: usuario.value, password: password.value })
+    })
+
+    if (!res.ok) {
+      error.value = 'Usuario o contraseña incorrectos.'
+      return
+    }
+
+    const data = await res.json()
+    login(data.usuario, data.rol, data.token, 0)
     router.push('/')
-  } else {
-    error.value = 'Usuario o contraseña incorrectos.'
+  } catch (e) {
+    error.value = 'No se pudo conectar con el servidor.'
   }
 }
 </script>
@@ -27,12 +36,28 @@ function login() {
   <div class="login-wrap">
     <div class="card login-card">
       <h2>Ingresar</h2>
+
       <label>Usuario</label>
-      <input v-model="usuario" type="text" placeholder="Usuario">
+      <input
+        v-model="usuario"
+        type="text"
+        placeholder="Usuario"
+      >
+
       <label>Contraseña</label>
-      <input v-model="password" type="password" placeholder="Contraseña">
-      <div v-if="error" class="mensaje error">{{ error }}</div>
-      <button class="btn" @click="login">Ingresar</button>
+      <input
+        v-model="password"
+        type="password"
+        placeholder="Contraseña"
+      >
+
+      <div v-if="error" class="mensaje error">
+        {{ error }}
+      </div>
+
+      <button class="btn" @click="iniciarSesion">
+        Ingresar
+      </button>
     </div>
   </div>
 </template>

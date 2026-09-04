@@ -1,8 +1,8 @@
 <script setup>
 import { ref } from 'vue'
-import { getSaldo, setSaldo } from '../auth.js'
+import { getSaldo, setSaldo, apiFetch } from '../auth.js'
 
-const saldo = ref(getSaldo())
+const saldo = ref(0)
 const metodo = ref('')
 const monto = ref('')
 const mensaje = ref('')
@@ -14,7 +14,7 @@ function mostrarMensaje(texto, tipo) {
   setTimeout(() => { mensaje.value = '' }, 4000)
 }
 
-function cargarSaldo() {
+async function cargarSaldo() {
   if (!metodo.value) {
     mostrarMensaje('Seleccioná un método de pago.', 'error')
     return
@@ -25,14 +25,49 @@ function cargarSaldo() {
     return
   }
 
-  const nuevoSaldo = saldo.value + valor
-  setSaldo(nuevoSaldo)
-  saldo.value = nuevoSaldo
+  try {
+    const res = await apiFetch('/balances/cargar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        monto: valor
+      })
+    })
 
-  mostrarMensaje('✅ Saldo cargado con éxito.', 'ok')
-  metodo.value = ''
-  monto.value = ''
+    if (!res.ok) {
+      mostrarMensaje('❌ No se pudo cargar el saldo.', 'error')
+      return
+    }
+
+    const data = await res.json()
+
+    saldo.value = Number(data.saldo || 0)
+    setSaldo(saldo.value)
+
+    mostrarMensaje('✅ Saldo cargado con éxito.', 'ok')
+    metodo.value = ''
+    monto.value = ''
+  } catch (e) {
+    mostrarMensaje('❌ No se pudo conectar con el servidor.', 'error')
+  }
 }
+
+async function traerSaldoInicial() {
+  try {
+    const res = await apiFetch('/balances')
+    if (res.ok) {
+      const data = await res.json()
+      saldo.value = Number(data.saldo || 0)
+      setSaldo(saldo.value)
+    }
+  } catch (e) {
+    saldo.value = 0
+  }
+}
+
+traerSaldoInicial()
 </script>
 
 <template>

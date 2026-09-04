@@ -1,8 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { isAdmin } from '../auth.js'
+import { isAdmin, apiFetch } from '../auth.js'
 
-const API = 'https://localhost:7097'
 const historial = ref([])
 const esAdmin = ref(isAdmin())
 
@@ -17,7 +16,13 @@ const borrarId = ref(null)
 onMounted(cargarHistorial)
 
 async function cargarHistorial() {
-  const res = await fetch(`${API}/transactions`)
+  const res = await apiFetch('/transactions')
+
+  if (!res.ok) {
+    console.error('Error al cargar historial')
+    return
+  }
+
   historial.value = await res.json()
 }
 
@@ -26,13 +31,25 @@ function formatearFecha(f) {
 }
 
 async function verTransaccion(id) {
-  const res = await fetch(`${API}/transactions/${id}`)
+  const res = await apiFetch(`/transactions/${id}`)
+
+  if (!res.ok) {
+    console.error('Error al obtener la transacción')
+    return
+  }
+
   detalle.value = await res.json()
   modalVer.value = true
 }
 
 async function abrirEdicion(id) {
-  const res = await fetch(`${API}/transactions/${id}`)
+  const res = await apiFetch(`/transactions/${id}`)
+
+  if (!res.ok) {
+    console.error('Error al obtener la transacción')
+    return
+  }
+
   const t = await res.json()
   edit.value = { ...t, dateTime: t.dateTime.slice(0, 16) }
   modalEditar.value = true
@@ -46,7 +63,7 @@ async function guardarEdicion() {
     money: parseFloat(edit.value.money),
     dateTime: new Date(edit.value.dateTime).toISOString()
   }
-  const res = await fetch(`${API}/transactions/${edit.value.id}`, {
+ const res = await apiFetch(`/transactions/${edit.value.id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -60,7 +77,10 @@ function abrirBorrado(id) {
 }
 
 async function confirmarBorrado() {
-  await fetch(`${API}/transactions/${borrarId.value}`, { method: 'DELETE' })
+  await apiFetch(`/transactions/${borrarId.value}`, {
+    method: 'DELETE'
+  })
+
   modalBorrar.value = false
   cargarHistorial()
 }

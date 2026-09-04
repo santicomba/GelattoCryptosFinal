@@ -6,7 +6,7 @@ import NuevaTransaccionView from '../views/NuevaTransaccionView.vue'
 import HistorialView from '../views/HistorialView.vue'
 import PortfolioView from '../views/PortfolioView.vue'
 import MercadoView from '../views/MercadoView.vue'
-import { isLogueado } from '../auth'
+import { estaLogueado } from '../auth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -22,8 +22,8 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  const logueado = isLogueado()
-  if (to.path !== '/login' && !logueado) {
+  const logueado = estaLogueado()
+    if (to.path !== '/login' && !logueado) {
     next('/login')
   } else if (to.path === '/login' && logueado) {
     next('/')
